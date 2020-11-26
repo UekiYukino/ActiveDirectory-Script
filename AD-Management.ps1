@@ -1,18 +1,22 @@
-﻿Write-Output "Active Directory Management Script"
+﻿Import-Module ActiveDirectory
+
+Write-Output "Active Directory Management Script"
 Write-Output "----------------------------------------------------"
 Write-Output "1. Change computer name (remote or local)" 
 Write-Output "2. Change DNS server"
 Write-Output "3. Create AD"
 Write-Output "4. Promote the current system as Domain Controller"
+Write-Output "5. Install Window Features"
+Write-Output "6. Import user information from a csv file"
 Write-Output "----------------------------------------------------"
 
 $choice= Read-Host "Enter your selection"
-
+Write-Output "----------------------------------------------------"
 
 if ($choice -eq 1){ # Change Computer Name
     # Receive User Input
     $adminUser= Read-Host "Enter your Administrative Account name"
-    $currentName= Read-Host 'Enter your current computer name (Press "Enter" to change the local machine)'
+    $currentName= Read-Host 'Enter name of the computer you want to change (Press "Enter" to change the local machine)'
     $newName= Read-Host "Enter your new computer name" 
 
     try{
@@ -76,6 +80,34 @@ if ($choice -eq 1){ # Change Computer Name
         Write-Host "------------------------------------------------"
     }
 
+} elseif ($choice -eq 5) {
+    $services = Read-Host 'Enter the Services that you want to install, Use space separator " "'
+    $computerName= Read-Host 'Enter the name of the computer you want to install the Features (Press "Enter" for the current machine)'
+
+    if ($computerName -eq ""){
+        Install-WindowsFeature -Name $services.Split(" ") -IncludeManagementTools
+    } else {
+        Install-WindowsFeature -Name $services.Split(" ") -IncludeManagementTools -ComputerName $computerName
+    }
+
+} elseif ($choice -eq 6){
+    $csvFile= Read-Host "Enter your csv file path (read README.md file for the csv format)"
+    $userList= Import-Csv $csvFile
+    $cnPath= Read-Host "Enther the cn of the OU you want to add the new users into"
+    foreach ($user in $userList){
+
+        #Extract information from the csv file
+        $UserName= -Join ($user.FirstName,$user.LastName) 
+        $GivenName= $user.FirstName
+        $Surname= $user.LastName
+        $Pass= ConvertTo-SecureString $user.InitalPassword -AsPlainText -Force #Get the password and covert it to secure string
+        $Notation= -join($user.Notes, " ")
+        $Department= $user.Department
+
+        New-ADUser -Path $cnPath -Name $UserName -GivenName $GivenName -Surname $Surname -AccountPassword $Pass | Enable-ADAccount
+        Set-ADUSer -Identity $UserName -Department $Department -Description $Notation
+
+    }
 
 } else {
     Write-Host "`n[-] Option does not exist! Try again!"
